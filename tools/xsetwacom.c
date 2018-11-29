@@ -102,6 +102,8 @@ typedef struct _param
 } param_t;
 
 
+static void set_rotation(Display *dpy, XDevice *dev, int rotation);
+
 /* get_func/set_func calls for special parameters */
 static void map_actions(Display *dpy, XDevice *dev, param_t *param, int argc, char **argv);
 static void set_mode(Display *dpy, XDevice *dev, param_t *param, int argc, char **argv);
@@ -1640,11 +1642,6 @@ static void set_mode(Display *dpy, XDevice *dev, param_t* param, int argc, char 
 static void set_rotate(Display *dpy, XDevice *dev, param_t* param, int argc, char **argv)
 {
 	int rotation = 0;
-	Atom prop, type;
-	int format;
-	unsigned char* data;
-	unsigned long nitems, bytes_after;
-
 	if (argc != param->arg_count)
 	{
 		fprintf(stderr, "'%s' requires exactly %d value(s).\n", param->name,
@@ -1668,12 +1665,20 @@ static void set_rotate(Display *dpy, XDevice *dev, param_t* param, int argc, cha
 		        argv[0], param->name);
 		return;
 	}
+	set_rotation(dpy, dev, rotation);
+}
 
-	prop = XInternAtom(dpy, param->prop_name, True);
+static void set_rotation(Display *dpy, XDevice *dev, int rotation)
+{
+	Atom prop, type;
+	int format;
+	unsigned char* data;
+	unsigned long nitems, bytes_after;
+
+	prop = XInternAtom(dpy, WACOM_PROP_ROTATION, True);
 	if (!prop)
 	{
-		fprintf(stderr, "Property for '%s' not available.\n",
-			param->name);
+		fprintf(stderr, "Property for Rotate not available.\n");
 		return;
 	}
 
@@ -1682,8 +1687,7 @@ static void set_rotate(Display *dpy, XDevice *dev, param_t* param, int argc, cha
 
 	if (nitems == 0 || format != 8)
 	{
-		fprintf(stderr, "Property for '%s' has no or wrong value - this is a bug.\n",
-			param->name);
+		fprintf(stderr, "Property for rotation has no or wrong value - this is a bug.\n");
 		goto out;
 	}
 
@@ -2392,7 +2396,7 @@ static Bool set_output_area(Display *dpy, XDevice *dev,
 static Bool set_output_xrandr(Display *dpy, XDevice *dev, char *output_name)
 {
 	int i, success = 0;
-	int x, y, width, height;
+	int x, y, width, height, rotation;
 	XRRScreenResources *res;
 	XRROutputInfo *output_info;
 	XRRCrtcInfo *crtc_info;
@@ -2413,14 +2417,22 @@ static Bool set_output_xrandr(Display *dpy, XDevice *dev, char *output_name)
 		y = crtc_info->y;
 		width = crtc_info->width;
 		height = crtc_info->height;
+		switch(crtc_info->rotation) {
+			case RR_Rotate_0:   rotation = 0; break;
+			case RR_Rotate_90:  rotation = 2; break;
+			case RR_Rotate_180: rotation = 3; break;
+			case RR_Rotate_270: rotation = 1; break;
+			default: rotation = 0;
+		}
 		XRRFreeCrtcInfo(crtc_info);
 
-		TRACE("CRTC (%dx%d) %dx%d\n", x, y, width, height);
+		TRACE("CRTC (%dx%d) %dx%d, rot %d\n", x, y, width, height, rotation);
 
 		if (strcmp(output_info->name, output_name) == 0)
 		{
 			TRACE("Setting CRTC %s\n", output_name);
 			success = set_output_area(dpy, dev, x, y, width, height);
+			set_rotation(dpy, dev, rotation);
 			break;
 		}
 	}
