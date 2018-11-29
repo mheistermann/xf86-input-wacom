@@ -2199,8 +2199,7 @@ static Bool need_xinerama(Display *dpy)
 	int maj, min;
 
 	if (!XQueryExtension(dpy, "RANDR", &opcode, &event, &error) ||
-	    !XRRQueryVersion(dpy, &maj, &min) || (maj * 1000 + min) < 1002 ||
-	    XQueryExtension(dpy, "NV-CONTROL", &opcode, &event, &error))
+	    !XRRQueryVersion(dpy, &maj, &min) || (maj * 1000 + min) < 1002)
 	{
 		TRACE("RandR extension not found, too old, or NV-CONTROL "
 			"extension is also present.\n");
